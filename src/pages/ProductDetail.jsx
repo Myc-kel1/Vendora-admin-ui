@@ -210,7 +210,7 @@ export default function ProductDetail() {
                 </div>
               ) : (
                 <div
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => fileInputRef?.click?.()}
                   className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-6 text-center transition-colors hover:border-muted-foreground/50 hover:bg-muted/30"
                 >
                   <Upload className="h-5 w-5 text-muted-foreground" />
