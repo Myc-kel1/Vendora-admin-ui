@@ -52,6 +52,7 @@ export default function ProductDetail() {
       setCategoryId(product.data.category_id ?? '')
       setIsActive(product.data.is_active ?? true)
       setImagePreview(product.data.image_url ?? null)
+      console.log('📸 Product image_url:', product.data.image_url)
     }
   }, [product.data])
 
@@ -72,10 +73,13 @@ export default function ProductDetail() {
       if (imageFile) {
         await uploadProductImage(id, imageFile)
         setImageFile(null)
+        setImagePreview(null)
       }
     },
     onSuccess: () => {
       toast.success('Product updated')
+      // Immediately refetch to get the new image URL
+      product.refetch()
       qc.invalidateQueries({ queryKey: ['admin-product', id] })
       qc.invalidateQueries({ queryKey: ['admin-products'] })
     },
