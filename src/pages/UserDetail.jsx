@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, Mail, Shield } from 'lucide-react'
-import { api } from '@/lib/api'
+import { ArrowLeft, Mail, Shield, Phone, MapPin, Calendar } from 'lucide-react'
+import { getUser, getUserProfile } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatusPill } from '@/components/StatusPill'
 import { formatDateTime, shortId } from '@/lib/format'
@@ -12,7 +12,13 @@ export default function UserDetail() {
 
   const user = useQuery({
     queryKey: ['admin-user', id],
-    queryFn: () => api(`/admin/users/${id}`),
+    queryFn: () => getUser(id),
+    enabled: !!id,
+  })
+
+  const profile = useQuery({
+    queryKey: ['admin-user-profile', id],
+    queryFn: () => getUserProfile(id),
     enabled: !!id,
   })
 
@@ -20,6 +26,7 @@ export default function UserDetail() {
   if (!user.data) return <p className="text-sm text-muted-foreground">User not found.</p>
 
   const u = user.data
+  const p = profile.data
   const initials = (u.email || '?').slice(0, 2).toUpperCase()
 
   return (
@@ -65,6 +72,57 @@ export default function UserDetail() {
               <dd className="mt-1 break-all font-mono">{u.id}</dd>
             </div>
           </dl>
+
+          {p && (
+            <>
+              <h2 className="mb-3 mt-6 text-sm font-semibold">Profile Information</h2>
+              <dl className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                {p.first_name && (
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <dt className="text-muted-foreground">First Name</dt>
+                    <dd className="mt-1 font-medium">{p.first_name}</dd>
+                  </div>
+                )}
+                {p.last_name && (
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <dt className="text-muted-foreground">Last Name</dt>
+                    <dd className="mt-1 font-medium">{p.last_name}</dd>
+                  </div>
+                )}
+                {p.phone && (
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <dt className="flex items-center gap-1.5 text-muted-foreground">
+                      <Phone className="h-3 w-3" /> Phone
+                    </dt>
+                    <dd className="mt-1 font-medium">{p.phone}</dd>
+                  </div>
+                )}
+                {p.date_of_birth && (
+                  <div className="rounded-md border bg-muted/30 p-3">
+                    <dt className="flex items-center gap-1.5 text-muted-foreground">
+                      <Calendar className="h-3 w-3" /> Date of Birth
+                    </dt>
+                    <dd className="mt-1 font-medium">{p.date_of_birth}</dd>
+                  </div>
+                )}
+                {(p.address_line1 || p.city || p.state || p.postal_code) && (
+                  <div className="rounded-md border bg-muted/30 p-3 sm:col-span-2">
+                    <dt className="flex items-center gap-1.5 text-muted-foreground">
+                      <MapPin className="h-3 w-3" /> Address
+                    </dt>
+                    <dd className="mt-1 space-y-1 font-medium">
+                      {p.address_line1 && <div>{p.address_line1}</div>}
+                      {p.address_line2 && <div>{p.address_line2}</div>}
+                      {(p.city || p.state || p.postal_code) && (
+                        <div>{[p.city, p.state, p.postal_code].filter(Boolean).join(', ')}</div>
+                      )}
+                      {p.country && <div>{p.country}</div>}
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </>
+          )}
         </div>
       </div>
     </>

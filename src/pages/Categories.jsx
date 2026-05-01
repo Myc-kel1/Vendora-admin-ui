@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { FolderTree, Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { listCategories, createCategory, updateCategory, deleteCategory } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -19,11 +19,11 @@ export default function Categories() {
 
   const cats = useQuery({
     queryKey: ['admin-categories'],
-    queryFn: () => api('/admin/categories'),
+    queryFn: () => listCategories(),
   })
 
   const del = useMutation({
-    mutationFn: (id) => api(`/admin/categories/${id}`, { method: 'DELETE' }),
+    mutationFn: (id) => deleteCategory(id),
     onSuccess: () => { toast.success('Category deleted'); qc.invalidateQueries({ queryKey: ['admin-categories'] }) },
     onError: (e) => toast.error(e.message),
   })
@@ -88,7 +88,7 @@ export default function Categories() {
         onOpenChange={setCreating}
         title="New category"
         onSubmit={async (name) => {
-          await api('/admin/categories', { method: 'POST', body: { name } })
+          await createCategory({ name })
           toast.success('Category created')
           qc.invalidateQueries({ queryKey: ['admin-categories'] })
         }}
@@ -100,7 +100,7 @@ export default function Categories() {
         title="Edit category"
         onSubmit={async (name) => {
           if (!editing) return
-          await api(`/admin/categories/${editing.id}`, { method: 'PATCH', body: { name } })
+          await updateCategory(editing.id, { name })
           toast.success('Category updated')
           qc.invalidateQueries({ queryKey: ['admin-categories'] })
         }}

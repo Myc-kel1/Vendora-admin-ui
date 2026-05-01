@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { getOrder, updateOrderStatus } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -20,7 +20,7 @@ export default function OrderDetail() {
 
   const order = useQuery({
     queryKey: ['admin-order', id],
-    queryFn: () => api(`/admin/orders/${id}`),
+    queryFn: () => getOrder(id),
     enabled: !!id,
   })
 
@@ -29,7 +29,7 @@ export default function OrderDetail() {
   }, [order.data])
 
   const update = useMutation({
-    mutationFn: (status) => api(`/admin/orders/${id}/status`, { method: 'PUT', body: { status } }),
+    mutationFn: (status) => updateOrderStatus(id, status),
     onSuccess: () => {
       toast.success('Status updated')
       qc.invalidateQueries({ queryKey: ['admin-order', id] })

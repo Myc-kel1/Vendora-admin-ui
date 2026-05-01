@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Users as UsersIcon } from 'lucide-react'
-import { api } from '@/lib/api'
+import { listUsers } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { StatusPill } from '@/components/StatusPill'
 import { Pager } from '@/components/Pager'
@@ -18,7 +18,7 @@ export default function Users() {
 
   const users = useQuery({
     queryKey: ['admin-users', page],
-    queryFn: () => api('/admin/users', { query: { page, page_size: PAGE_SIZE } }),
+    queryFn: () => listUsers({ page, page_size: PAGE_SIZE }),
   })
 
   const items = users.data?.items ?? []

@@ -31,8 +31,11 @@ export async function signInWithPassword(email, password) {
   })
   const data = await res.json()
   if (!res.ok) {
-    throw new Error(data?.error_description || data?.msg || data?.error || 'Invalid credentials')
+    const errorMsg = data?.error_description || data?.msg || data?.error || 'Invalid credentials'
+    console.error('Supabase auth error:', { status: res.status, error: errorMsg, data })
+    throw new Error(errorMsg)
   }
+  
   const session = {
     access_token: data.access_token,
     refresh_token: data.refresh_token,
@@ -43,6 +46,8 @@ export async function signInWithPassword(email, password) {
       role: data.user?.user_metadata?.role || data.user?.app_metadata?.role,
     },
   }
+  
+  console.log('✓ Authenticated user:', { email: session.user.email, role: session.user.role })
   setSession(session)
   return session
 }

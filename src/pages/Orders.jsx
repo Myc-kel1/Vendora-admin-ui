@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Search, ShoppingCart } from 'lucide-react'
-import { api } from '@/lib/api'
+import { listOrders } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -32,9 +32,7 @@ export default function Orders() {
 
   const orders = useQuery({
     queryKey: ['admin-orders', { page, status, debouncedUser }],
-    queryFn: () => api('/admin/orders', {
-      query: { page, page_size: PAGE_SIZE, status: status || undefined, user_id: debouncedUser || undefined },
-    }),
+    queryFn: () => listOrders({ page, page_size: PAGE_SIZE, status: status || undefined, user_id: debouncedUser || undefined }),
   })
 
   const items = orders.data?.items ?? []

@@ -110,4 +110,3 @@ npm run build
 ```
 
 Deploy the `dist/` folder to any static host (Netlify, Vercel, Render static site, S3).
-"# Vendora-admin-ui" 

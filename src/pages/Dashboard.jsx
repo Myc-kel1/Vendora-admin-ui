@@ -3,7 +3,7 @@ import {
   ArrowUpRight, CircleDollarSign, Clock, ShoppingBag,
   TrendingUp, XCircle, CheckCircle2, Package,
 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { getAnalytics } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { formatMoney, formatNumber } from '@/lib/format'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -35,7 +35,7 @@ function Kpi({ label, value, sub, icon: Icon, tone = 'default' }) {
 export default function Dashboard() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['analytics'],
-    queryFn: () => api('/admin/analytics', { query: { top_products_limit: 10 } }),
+    queryFn: () => getAnalytics({ top_products_limit: 10 }),
   })
 
   return (

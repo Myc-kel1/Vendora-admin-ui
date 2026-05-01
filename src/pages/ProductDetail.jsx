@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Loader2, Save, Trash2 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { ArrowLeft, Loader2, Save, Trash2, Upload, X } from 'lucide-react'
+import { api, uploadProductImage, deleteProductImage, updateProduct } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +39,9 @@ export default function ProductDetail() {
   const [stock, setStock] = useState(0)
   const [categoryId, setCategoryId] = useState('')
   const [isActive, setIsActive] = useState(true)
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     if (product.data) {
@@ -48,14 +51,29 @@ export default function ProductDetail() {
       setStock(product.data.stock ?? 0)
       setCategoryId(product.data.category_id ?? '')
       setIsActive(product.data.is_active ?? true)
+      setImagePreview(product.data.image_url ?? null)
     }
   }, [product.data])
 
   const update = useMutation({
-    mutationFn: () => api(`/admin/products/${id}`, {
-      method: 'PATCH',
-      body: { name, description: description || null, price: String(price), stock: Number(stock), category_id: categoryId || null, is_active: isActive },
-    }),
+    mutationFn: async () => {
+      const updates = {}
+      if (name !== product.data.name) updates.name = name
+      if (description !== product.data.description) updates.description = description || null
+      if (price !== String(product.data.price)) updates.price = Number(price)
+      if (stock !== product.data.stock) updates.stock = Number(stock)
+      if (categoryId !== product.data.category_id) updates.category_id = categoryId || null
+      if (isActive !== product.data.is_active) updates.is_active = isActive
+
+      if (Object.keys(updates).length > 0) {
+        await updateProduct(id, updates)
+      }
+
+      if (imageFile) {
+        await uploadProductImage(id, imageFile)
+        setImageFile(null)
+      }
+    },
     onSuccess: () => {
       toast.success('Product updated')
       qc.invalidateQueries({ queryKey: ['admin-product', id] })
@@ -74,6 +92,16 @@ export default function ProductDetail() {
     onError: (e) => toast.error(e.message),
   })
 
+  const deleteImg = useMutation({
+    mutationFn: () => deleteProductImage(id),
+    onSuccess: () => {
+      setImagePreview(null)
+      toast.success('Image deleted')
+      qc.invalidateQueries({ queryKey: ['admin-product', id] })
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
   const deactivate = useMutation({
     mutationFn: () => api(`/admin/products/${id}`, { method: 'DELETE' }),
     onSuccess: () => {
@@ -83,6 +111,34 @@ export default function ProductDetail() {
     },
     onError: (e) => toast.error(e.message),
   })
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB')
+      return
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      toast.error('Only JPEG, PNG, WebP, and GIF images are allowed')
+      return
+    }
+
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onload = (event) => setImagePreview(event.target.result)
+    reader.readAsDataURL(file)
+  }
+
+  const hasChanges = name !== product.data?.name ||
+    description !== product.data?.description ||
+    price !== String(product.data?.price) ||
+    stock !== product.data?.stock ||
+    categoryId !== product.data?.category_id ||
+    isActive !== product.data?.is_active ||
+    imageFile !== null
 
   if (product.isLoading) return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-96" /></div>
 
@@ -108,7 +164,7 @@ export default function ProductDetail() {
             <Button variant="outline" onClick={() => { if (confirm('Deactivate this product?')) deactivate.mutate() }}>
               <Trash2 className="mr-1.5 h-4 w-4" /> Deactivate
             </Button>
-            <Button onClick={() => update.mutate()} disabled={update.isPending}>
+            <Button onClick={() => update.mutate()} disabled={!hasChanges || update.isPending}>
               {update.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
               Save
             </Button>
@@ -128,7 +184,52 @@ export default function ProductDetail() {
               <Label htmlFor="desc">Description</Label>
               <Textarea id="desc" rows={5} value={description} onChange={(e) => setDescription(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+
+            {/* Image Upload Section */}
+            <div className="space-y-2 border-t pt-4">
+              <Label>Product Image</Label>
+              {imagePreview ? (
+                <div className="relative inline-block">
+                  <img src={imagePreview} alt="Product" className="max-h-48 max-w-full rounded-lg border object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center gap-2 rounded-lg bg-black/50 opacity-0 transition-opacity hover:opacity-100">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded bg-white/20 p-2 text-white hover:bg-white/30"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setImageFile(null); setImagePreview(null); deleteImg.mutate() }}
+                      className="rounded bg-white/20 p-2 text-white hover:bg-white/30"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-6 text-center transition-colors hover:border-muted-foreground/50 hover:bg-muted/30"
+                >
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                  <div className="text-sm">
+                    <p className="font-medium">Click to upload image</p>
+                    <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, GIF (max 5MB)</p>
+                  </div>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="space-y-1.5">
                 <Label htmlFor="price">Price</Label>
                 <Input id="price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />

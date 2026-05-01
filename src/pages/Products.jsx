@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Loader2, Plus, Search, MoreHorizontal, Pencil, Trash2, Package } from 'lucide-react'
-import { api } from '@/lib/api'
+import { Loader2, Plus, Search, MoreHorizontal, Pencil, Trash2, Package, Upload, X, Image as ImageIcon } from 'lucide-react'
+import { api, uploadProductImage, createProduct } from '@/lib/api'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -185,42 +185,94 @@ function CreateProductDialog({ open, onOpenChange, categories, onCreated }) {
   const [price, setPrice] = useState('')
   const [stock, setStock] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [imageFile, setImageFile] = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
+  const fileInputRef = useRef(null)
 
-  const reset = () => { setName(''); setDescription(''); setPrice(''); setStock(''); setCategoryId('') }
+  const reset = () => { 
+    setName('')
+    setDescription('')
+    setPrice('')
+    setStock('')
+    setCategoryId('')
+    setImageFile(null)
+    setImagePreview(null)
+  }
 
   const create = useMutation({
-    mutationFn: () => api('/admin/products', {
-      method: 'POST',
-      body: { name, description: description || null, price: String(price), stock: Number(stock) || 0, category_id: categoryId || null },
-    }),
+    mutationFn: async () => {
+      // Create product first
+      const product = await createProduct({
+        name,
+        description: description || null,
+        price: String(price),
+        stock: Number(stock) || 0,
+        category_id: categoryId || null,
+      })
+
+      // Upload image if provided
+      if (imageFile) {
+        try {
+          await uploadProductImage(product.id, imageFile)
+        } catch (error) {
+          console.error('Image upload failed:', error)
+          toast.error(`Product created but image upload failed: ${error.message}`)
+          // Don't throw - product was created successfully
+        }
+      }
+
+      return product
+    },
     onSuccess: () => { toast.success('Product created'); onCreated(); reset(); onOpenChange(false) },
     onError: (e) => toast.error(e.message),
   })
 
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file size
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB')
+      return
+    }
+
+    // Validate file type
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      toast.error('Only JPEG, PNG, WebP, and GIF images are allowed')
+      return
+    }
+
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onload = (event) => setImagePreview(event.target.result)
+    reader.readAsDataURL(file)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>New product</DialogTitle>
-          <DialogDescription>Add a new product to your catalog.</DialogDescription>
+          <DialogDescription>Add a new product to your catalog. You can add an image now or later.</DialogDescription>
         </DialogHeader>
         <form onSubmit={(e) => { e.preventDefault(); create.mutate() }} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
+            <Label htmlFor="name">Name *</Label>
+            <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="desc">Description</Label>
-            <Textarea id="desc" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Textarea id="desc" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Product description" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="price">Price</Label>
-              <Input id="price" required inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} />
+              <Label htmlFor="price">Price *</Label>
+              <Input id="price" required inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="stock">Stock</Label>
-              <Input id="stock" required type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
+              <Input id="stock" type="number" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -233,9 +285,45 @@ function CreateProductDialog({ open, onOpenChange, categories, onCreated }) {
               </SelectContent>
             </Select>
           </div>
-          <DialogFooter>
+
+          {/* Image Upload Section */}
+          <div className="space-y-2 border-t pt-4">
+            <Label>Product Image (Optional)</Label>
+            {imagePreview ? (
+              <div className="relative inline-block">
+                <img src={imagePreview} alt="Preview" className="h-32 w-32 rounded-lg border object-cover" />
+                <button
+                  type="button"
+                  onClick={() => { setImageFile(null); setImagePreview(null) }}
+                  className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-white hover:bg-destructive/90"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-6 text-center transition-colors hover:border-muted-foreground/50 hover:bg-muted/30"
+              >
+                <Upload className="h-5 w-5 text-muted-foreground" />
+                <div className="text-sm">
+                  <p className="font-medium">Click to upload image</p>
+                  <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, GIF (max 5MB)</p>
+                </div>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={handleImageChange}
+              className="hidden"
+            />
+          </div>
+
+          <DialogFooter className="pt-4">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={create.isPending}>
+            <Button type="submit" disabled={create.isPending || !name || !price}>
               {create.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create
             </Button>
           </DialogFooter>
